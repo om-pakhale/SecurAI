@@ -5,13 +5,15 @@ import pandas as pd
 import joblib
 from urllib.parse import urlparse, parse_qs , urlencode , urlunparse
 
-# Model Loading...
-Selecter  = joblib.load('Selecter_Model.pkl')
-injection_model =  joblib.load('injection_model.pkl')
-vector_Model = joblib.load('vectorizer.pkl')
-vector_Selecter = joblib.load('Selector_Vector.pkl')
-st.cache_resource
+@st.cache_resource
+def load_models():
+    selecter = joblib.load('Models/Selecter_Model.pkl')
+    injection_model = joblib.load('Models/injection_model.pkl')
+    vector_model = joblib.load('Models/Selector_Vector.pkl')
+    vector_selecter = joblib.load('Models/vectorizer.pkl')
+    return selecter, injection_model, vector_model, vector_selecter
 
+Selecter, injection_model, vector_Model, vector_Selecter = load_models()
 
 st.set_page_config (
     page_title ="SecurAI Suite",
@@ -77,4 +79,6 @@ elif page == "Web Vulnerability Scanner":
             
             if result == 1:
                 st.error(f" ALERT: {chosen_cat} Vulnerability confirmed with payload: {p}")
+elif page == "Email Phishing Scanner":
+    v = 1
 
