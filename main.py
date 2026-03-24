@@ -167,7 +167,7 @@ elif page == "Network Intrusion Detection":
     'dst_host_srv_rerror_rate'
     ]
     # Loading Data And Model in the App
-    data_system = jb.load("Model_Nids.pkl")
+    data_system = joblib.load("Models/Model_Nids.pkl")
     model = data_system['model']
     encoders = data_system['encoders']
     st.title("📡 SecurAI: Network Intrusion Detection")
@@ -248,3 +248,62 @@ elif page == "Network Intrusion Detection":
                 st.error("Severity: Critical - The entire system has crashed.")
             else:
                 st.write("No immediate threat detected in this range.")
+    with tab3:
+            st.header("Live Detection Model")
+            st.warning("🚨 This will scan your live Network log.")
+            
+            if st.button("Start Live Scan"):
+                packet_list = []
+                alt =  []
+                def Packet_1(packet):
+                    if sc.IP in packet:
+                        p_type = "Tcp" if packet[sc.IP].proto == 6 else "UDP" if packet[sc.IP].proto == 17 else "Other"
+                        packet_info = {
+                                "Source IP": packet[sc.IP].src,
+                                "Destination IP": packet[sc.IP].dst,
+                                "Protocol": p_type,
+                                "Length": len(packet),
+                                "Info": packet.summary(),
+                                "Status": "Safe ✅" 
+                                        }
+
+                        # from here code to check if packet kar contein Malious or not
+                        if packet.haslayer(sc.Raw):
+                            try:
+                                payload = packet[sc.Raw].load.decode(errors='ignore')
+                                if 'GET' in payload or 'POST' in payload:
+                                    transformed_payload = vector.transform([payload])
+                                    prediction = model.predict(transformed_payload)
+
+                                    if prediction[0] == 1:
+                                        packet_info["Status"] = "🚨 ATTACK"
+                                        alt.append({
+                                            "Time": packet.summary().split()[0],
+                                            "Source": f"{packet[sc.IP].src}:{packet[sc.TCP].sport if packet.haslayer(sc.TCP) else 'N/A'}",
+                                            "Payload": payload[:100] # Capture first 100 chars
+                                        })
+                            except Exception as e:
+                                    pass
+                        packet_list.append(packet_info)
+                with st.spinner("Sniffing 10 packets..."):
+                    try:
+                        # Added timeout to prevent infinite hang
+                        sc.sniff(filter ='tcp port 80',prn=Packet_1, store=0, count=10, timeout=10)
+                        if packet_list:
+                            live_data = pd.DataFrame(packet_list)
+                            st.dataframe(live_data)
+                            if alt:
+                                st.error(f"🚨 {len(alt)} Potential Injection Attacks Detected!")
+                                for alert in alt:
+                                    with st.expander(f"Attack from {alert['Source']}"):
+                                        st.code(alert['Payload'], language="sql")
+                            else:
+                                st.success("No malicious injections detected in these 10 packets.")
+                            if not live_data[live_data['Length'] > 1000].empty:
+                                st.error("🚨 Large packets detected in traffic!")
+                            else:
+                                st.success("No immediate traffic issues detected.")
+                        else:
+                            st.error("No packets captured. Ensure you are running with sudo.")
+                    except Exception as e:
+                        st.error(f"Error capturing packets: {e}")
