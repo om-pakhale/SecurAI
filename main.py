@@ -6,6 +6,7 @@ import joblib
 import imaplib as im
 import email as e
 import re
+import scapy as sc
 from urllib.parse import urlparse, parse_qs , urlencode , urlunparse
 
 @st.cache_resource
