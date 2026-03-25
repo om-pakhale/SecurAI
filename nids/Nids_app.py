@@ -16,8 +16,8 @@ from sklearn.metrics import classification_report
 # Traing Model Path
 TRAIN_DATA_PATH = "KDDTrain+.txt"
 MODEL_PATH = "Model_Nids.pkl"
-model2 = joblib.load('full_injection_model.pkl')
-vector = joblib.load('full_vectorizer.pkl')
+model2 = joblib.load('Models/full_injection_model.pkl')
+vector = joblib.load('Models/full_vectorizer.pkl')
 
 columns = [
     'duration', 'protocol_type', 'service', 'flag', 'src_bytes', 'dst_bytes',
