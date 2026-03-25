@@ -169,6 +169,7 @@ elif page == "Network Intrusion Detection":
     ]
     # Loading Data And Model in the App
     data_system = joblib.load("Models/Model_Nids.pkl")
+    vector = joblib.load('Models/full_vectorizer.pkl')
     model = data_system['model']
     encoders = data_system['encoders']
     st.title("📡 SecurAI: Network Intrusion Detection")
