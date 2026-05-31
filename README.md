@@ -23,17 +23,16 @@ Sentinel-Sec is an advanced, AI-driven Security Operations (SecOps) framework th
                                                       │ (If High / Critical)
                                                       ▼
 [ Discord Channel Feed ] <──( Markdown Alert )── [ AI Agent (Gemini 1.5 Flash) ]
-
-## Installation & Setup
+🛠️ Installation & Setup
 1. Prerequisites
 Ensure your environment has the required system-level dependencies for live packet capture:
 
-```Bash
+Bash
 sudo apt update && sudo apt install libpcap-dev python3-dev -y
 2. Virtual Environment Setup
 Clone the repository and install the Python dependencies within an isolated environment:
 
-```Bash
+Bash
 git clone [https://github.com/om-pakhale/SecurAI.git](https://github.com/om-pakhale/SecurAI.git)
 cd SecurAI
 python3 -m venv venv
@@ -41,25 +40,25 @@ source venv/bin/activate
 pip install -r requirements.txt
 (If a requirements file is not used, install manually via: pip install streamlit requests pandas joblib scikit-learn scapy)
 
-## 3. Running the Deployed Application
+3. Running the Deployed Application
 Because the NIDS module binds to low-level raw sockets to sniff interface traffic, the Streamlit server must be executed with root privileges (sudo) while preserving the active virtual environment path:
 
-```Bash
+Bash
 sudo -E env "PATH=$PATH" streamlit run app.py
-## 🔄 Orchestration Hub Configuration (n8n)
-1.Webhook Trigger: Configure the node to handle incoming HTTP POST requests on the local development path: /webhook-test/sentinel-alerts.
+🔄 Orchestration Hub Configuration (n8n)
+Webhook Trigger: Configure the node to handle incoming HTTP POST requests on the local development path: /webhook-test/sentinel-alerts.
 
-2.Switch Node: Set routing criteria to Rules Mode using the case-sensitive string expression {{ $json.body.Severity }}. Route strings matching High and Critical to downstream paths.
+Switch Node: Set routing criteria to Rules Mode using the case-sensitive string expression {{ $json.body.Severity }}. Route strings matching High and Critical to downstream paths.
 
-3.AI Agent Node: Attach a Google Gemini Chat Model sub-node running gemini-1.5-flash for high-throughput execution. Secure it using the following system prompt guardrail:
+AI Agent Node: Attach a Google Gemini Chat Model sub-node running gemini-1.5-flash for high-throughput execution. Secure it using the following system prompt guardrail:
 
 "You are an expert SecOps Triage Assistant. Review the incoming machine learning vulnerability payload. State the core impact of the asset compromise, and provide exactly one clear, actionable engineering remediation step to secure the asset. Your entire response must be concise and limited to under two sentences total."
 
-4.Discord Node: Connect the output to your Discord webhook URL and pass the compiled markdown triage template.
+Discord Node: Connect the output to your Discord webhook URL and pass the compiled markdown triage template.
 
 🛡️ Engineering Validation & Troubleshooting Notes
-    Local Network Loopback: When deploying across distinct host/guest virtualization layers, identify the core interface via ip a (e.g., eth0) or migrate the framework natively inside the guest container environment to leverage loopback communication safely.
+Local Network Loopback: When deploying across distinct host/guest virtualization layers, identify the core interface via ip a (e.g., eth0) or migrate the framework natively inside the guest container environment to leverage loopback communication safely.
 
-    Strict Property Mapping: To avoid data drops at the conditional gateway, verify that your telemetry dispatch keys exactly match the capitalization parsed by n8n (e.g., matching the Python payload dictionary property "Severity" to {{ $json.body.Severity }}).
+Strict Property Mapping: To avoid data drops at the conditional gateway, verify that your telemetry dispatch keys exactly match the capitalization parsed by n8n (e.g., matching the Python payload dictionary property "Severity" to {{ $json.body.Severity }}).
 
-    Throttling & Resource Optimization: High-frequency automation scanning loops can choke reasoning-heavy model configurations, leading to 429 Too Many Requests API errors. This framework implements a local python loop delay (time.sleep(1.5)) paired with the rapid execution thresholds of the gemini-1.5-flash model to maintain end-to-end performance.
+Throttling & Resource Optimization: High-frequency automation scanning loops can choke reasoning-heavy model configurations, leading to 429 Too Many Requests API errors. This framework implements a local python loop delay (time.sleep(1.5)) paired with the rapid execution thresholds of the gemini-1.5-flash model to maintain end-to-end performance.
