@@ -6,8 +6,27 @@ import joblib
 import imaplib as im
 import email as e
 import re
+import time
 import scapy as sc
 from urllib.parse import urlparse, parse_qs , urlencode , urlunparse
+
+N8N_WEBHOOK_URL = "http://192.168.31.92:5678/webhook-test/sentinel-alerts"
+
+def dispatch_incident_alert(alert_type, severity, target_info, technical_details):
+    """Pipes security telemetry natively into your local n8n container."""
+    payload = {
+        "event_source": "Sentinel-Sec Framework Engine",
+        "alert_type": alert_type,
+        "severity": severity,
+        "target": target_info,
+        "telemetry": technical_details
+    }
+    try:
+        time.sleep(1.5)
+        # Sends data over to your n8n Webhook node asynchronously
+        requests.post(N8N_WEBHOOK_URL, json=payload, headers={"Content-Type": "application/json"}, timeout=3)
+    except Exception:
+        pass
 
 @st.cache_resource
 def load_models():
@@ -85,6 +104,13 @@ elif page == "Web Vulnerability Scanner":
             
             if result == 1:
                 st.error(f" ALERT: {chosen_cat} Vulnerability confirmed with payload: {p}")
+                dispatch_incident_alert(
+                    alert_type=f"Web Vulnerability Discovered ({chosen_cat})",
+                    severity="High",
+                    target_info=Target_Url,
+                    technical_details={"exploited_url": new_url, "payload_used": p}
+                )
+                time.sleep(2.0)
 elif page == "Email Phishing Scanner":
     st.set_page_config(page_title="Email Scanner AI")
     st.title('AI-EMAIL MALWARE SCANNER')
@@ -134,6 +160,16 @@ elif page == "Email Phishing Scanner":
                                 if malicious_prob > 0.8:
                                     prediction = 1
                                     confidence = malicious_prob * 100
+                                    dispatch_incident_alert(
+                                        alert_type="Phishing Indicator Confirmed",
+                                        severity="Critical",
+                                        target_info=Emailid,
+                                        technical_details={
+                                            "from_address": msg['from'],
+                                            "subject_header": msg['subject'],
+                                            "malicious_probability": f"{confidence:.1f}%"
+                                        }
+                                    )
                                 else:
                                     prediction = 0
                                     confidence = (1 - malicious_prob) * 100
@@ -284,6 +320,15 @@ elif page == "Network Intrusion Detection":
                                             "Source": f"{packet[sc.IP].src}:{packet[sc.TCP].sport if packet.haslayer(sc.TCP) else 'N/A'}",
                                             "Payload": payload[:100] # Capture first 100 chars
                                         })
+                                        dispatch_incident_alert(
+                                            alert_type="Live Network Packet Injection Intrusion",
+                                            severity="Critical",
+                                            target_info=packet[sc.IP].dst,
+                                            technical_details={
+                                                "source_origin": f"{packet[sc.IP].src}:{packet[sc.TCP].sport if packet.haslayer(sc.TCP) else 'N/A'}",
+                                                "extracted_malicious_payload": payload[:120]
+                                            }
+                                        )
                             except Exception as e:
                                     pass
                         packet_list.append(packet_info)
