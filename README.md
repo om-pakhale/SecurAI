@@ -24,16 +24,16 @@ Sentinel-Sec is an advanced, AI-driven Security Operations (SecOps) framework th
                                                       ▼
 [ Discord Channel Feed ] <──( Markdown Alert )── [ AI Agent (Gemini 1.5 Flash) ]
 
-Installation & Setup
+## Installation & Setup
 1. Prerequisites
 Ensure your environment has the required system-level dependencies for live packet capture:
 
-Bash
+```Bash
 sudo apt update && sudo apt install libpcap-dev python3-dev -y
 2. Virtual Environment Setup
 Clone the repository and install the Python dependencies within an isolated environment:
 
-Bash
+```Bash
 git clone [https://github.com/om-pakhale/SecurAI.git](https://github.com/om-pakhale/SecurAI.git)
 cd SecurAI
 python3 -m venv venv
@@ -41,12 +41,12 @@ source venv/bin/activate
 pip install -r requirements.txt
 (If a requirements file is not used, install manually via: pip install streamlit requests pandas joblib scikit-learn scapy)
 
-3. Running the Deployed Application
+## 3. Running the Deployed Application
 Because the NIDS module binds to low-level raw sockets to sniff interface traffic, the Streamlit server must be executed with root privileges (sudo) while preserving the active virtual environment path:
 
-Bash
+```Bash
 sudo -E env "PATH=$PATH" streamlit run app.py
-🔄 Orchestration Hub Configuration (n8n)
+## 🔄 Orchestration Hub Configuration (n8n)
 1.Webhook Trigger: Configure the node to handle incoming HTTP POST requests on the local development path: /webhook-test/sentinel-alerts.
 
 2.Switch Node: Set routing criteria to Rules Mode using the case-sensitive string expression {{ $json.body.Severity }}. Route strings matching High and Critical to downstream paths.
