@@ -70,47 +70,68 @@ elif page == "Web Vulnerability Scanner":
         
         return high + med
 
-    def inject_payload(target_url, payload):
+    def inject_payload_for_param(target_url, target_param, payload):
+        """
+        Injects a payload into a SPECIFIC parameter while keeping 
+        all other parameters set to their original values.
+        """
         parsed_url = urlparse(target_url)
         params = parse_qs(parsed_url.query) 
         
-        if not params:
-            return target_url + payload 
+        params[target_param] = [payload]
         
-        
-        first_param = list(params.keys())[0]
-        params[first_param] = [payload]
-        
-        # 3. Rebuild the URL
         new_query = urlencode(params, doseq=True)
         new_url = urlunparse(parsed_url._replace(query=new_query))
-        
         return new_url
+
     st.header("AI WEB-VULNERABILITY SCANNER")
-    Target_Url = st.text_input('Enter The URls')
+    Target_Url = st.text_input('Enter The URL')
 
     if st.button("Run Scanner"):
-        data1 = vector_Selecter.transform([Target_Url])
-        predict = Selecter.predict(data1)[0]
-
-        categories = {1: "SQLi", 2: "XSS" , 3 : "CMD"}
-        chosen_cat = categories.get(predict,"SQLi")
-        payloads = get_payloads(chosen_cat)
-
-        for p in payloads:
-            new_url =inject_payload(Target_Url , p)
-            X_auditor = vector_Model.transform([new_url])
-            result = injection_model.predict(X_auditor)[0]
+        #Make sure there are query parameters
+        parsed_url = urlparse(Target_Url)
+        all_params = parse_qs(parsed_url.query)
+        
+        if not all_params:
+            st.warning("Target URL has no query parameters (e.g., '?id=1') to test.")
+        else:
+            st.info(f"Found {len(all_params)} parameter(s) to test: {', '.join(all_params.keys())}")
             
-            if result == 1:
-                st.error(f" ALERT: {chosen_cat} Vulnerability confirmed with payload: {p}")
-                dispatch_incident_alert(
-                    alert_type=f"Web Vulnerability Discovered ({chosen_cat})",
-                    severity="High",
-                    target_info=Target_Url,
-                    technical_details={"exploited_url": new_url, "payload_used": p}
-                )
-                time.sleep(2.0)
+            
+            data1 = vector_Selecter.transform([Target_Url])
+            predict = Selecter.predict(data1)[0]
+
+            categories = {1: "SQLi", 2: "XSS", 3: "CMD"}
+            chosen_cat = categories.get(predict, "SQLi")
+            payloads = get_payloads(chosen_cat)
+            
+            vulnerability_detected = False
+
+            # discovered query parameter
+            for param_name in all_params.keys():
+                st.write(f"Testing parameter: `{param_name}`...")
+                
+                #Inject each payload into the url
+                for p in payloads:
+                    new_url = inject_payload_for_param(Target_Url, param_name, p)
+                    X_auditor = vector_Model.transform([new_url])
+                    result = injection_model.predict(X_auditor)[0]
+                    
+                    if result == 1:
+                        st.error(f"🚨 ALERT: {chosen_cat} Vulnerability confirmed! Parameter: `{param_name}` | Payload: {p}")
+                        vulnerability_detected = True
+                        dispatch_incident_alert(
+                        alert_type=f"Web Vulnerability Discovered ({chosen_cat})",
+                        severity="High",
+                        target_info=Target_Url,
+                        technical_details={"exploited_url": new_url, "payload_used": p}
+                        )
+                        
+                time.sleep(0.5) 
+                
+            if not vulnerability_detected:
+                st.success("✅ ML Scan Complete: All parameters evaluated clean.")
+            
 elif page == "Email Phishing Scanner":
     st.set_page_config(page_title="Email Scanner AI")
     st.title('AI-EMAIL MALWARE SCANNER')
