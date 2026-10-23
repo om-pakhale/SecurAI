@@ -1,6 +1,6 @@
 import sqlite3
 import os
-import datetime as dt
+from datetime import datetime , timezone
 db_path =  os.path.join(os.path.dirname(__file__),"..","sentinel.db")
 def getconnect():
     conn =  sqlite3.connect(db_path ,timeout=10)
@@ -30,13 +30,14 @@ def int_db():
 def int_insert_event(src_ip, dst_ip, protocal, payload, pred_class, conf, severit):
     con = getconnect()
     cursor = con.cursor()
+    current_time = datetime.now(timezone.utc).isoformat()
     cursor.execute(
         """
         INSERT INTO security_events 
         (timestamp, source_ip, dest_ip, protocol, payload_sample, predicted_class, confidence, severity)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
         (
-        dt.utcnow().isoformat(),
+        current_time,
         src_ip,
         dst_ip,
         protocal,
@@ -45,7 +46,7 @@ def int_insert_event(src_ip, dst_ip, protocal, payload, pred_class, conf, severi
         float(conf),
         severit
     ))
-def fetch_incident():
+def fetch_incident(limit=50):
     con = getconnect()
     cusor = con.cursor()
     cusor.execute("""
@@ -53,7 +54,7 @@ def fetch_incident():
         FROM security_events 
         ORDER BY id DESC 
         LIMIT ?
-    """, (dt.limit,))
+    """, (limit,))
     rows = cusor.fetchall()
     con.close()
     return rows
