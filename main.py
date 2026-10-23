@@ -308,70 +308,99 @@ elif page == "Network Intrusion Detection":
             else:
                 st.write("No immediate threat detected in this range.")
     with tab3:
-            st.header("Live Detection Model")
-            st.warning("🚨 This will scan your live Network log.")
-            
-            if st.button("Start Live Scan"):
-                packet_list = []
-                alt =  []
-                def Packet_1(packet):
-                    if sc.IP in packet:
-                        p_type = "Tcp" if packet[sc.IP].proto == 6 else "UDP" if packet[sc.IP].proto == 17 else "Other"
-                        packet_info = {
-                                "Source IP": packet[sc.IP].src,
-                                "Destination IP": packet[sc.IP].dst,
-                                "Protocol": p_type,
-                                "Length": len(packet),
-                                "Info": packet.summary(),
-                                "Status": "Safe ✅" 
-                                        }
+            st.header("Live Network Deep Packet Inspection")
+            st.warning("🚨 Captures raw TCP/IP frames across network interfaces and inspects application-layer payloads for injection vectors.")
 
-                        # from here code to check if packet kar contein Malious or not
+            col_ctrl1, col_ctrl2 = st.columns([1, 2])
+            with col_ctrl1:
+                packet_budget = st.number_input("Packets to Inspect", min_value=5, max_value=100, value=15, step=5)
+            with col_ctrl2:
+                custom_filter = st.text_input("BPF Filter Syntax", value="tcp port 80 or tcp port 8080 or tcp port 8000")
+
+            # Start Scanning Button
+            if st.button("🚀 Start Live Packet Capture"):
+                packet_list = []
+                alerts = []
+
+                def process_packet(packet):
+                    if sc.IP in packet:
+                        proto_name = "TCP" if packet[sc.IP].proto == 6 else "UDP" if packet[sc.IP].proto == 17 else "Other"
+                        src_ip = packet[sc.IP].src
+                        dst_ip = packet[sc.IP].dst
+                        sport = packet[sc.TCP].sport if packet.haslayer(sc.TCP) else "N/A"
+                        dport = packet[sc.TCP].dport if packet.haslayer(sc.TCP) else "N/A"
+
+                        packet_info = {
+                            "Source": f"{src_ip}:{sport}",
+                            "Destination": f"{dst_ip}:{dport}",
+                            "Protocol": proto_name,
+                            "Length": len(packet),
+                            "Payload Preview": "None",
+                            "Status": "Safe ✅"
+                        }
+
                         if packet.haslayer(sc.Raw):
                             try:
-                                payload = packet[sc.Raw].load.decode(errors='ignore')
-                                if 'GET' in payload or 'POST' in payload:
-                                    transformed_payload = vector.transform([payload])
-                                    prediction = model.predict(transformed_payload)
+                                raw_payload = packet[sc.Raw].load.decode(errors='ignore')
+                                packet_info["Payload Preview"] = raw_payload[:60].replace("\r", " ").replace("\n", " ")
 
-                                    if prediction[0] == 1:
-                                        packet_info["Status"] = "🚨 ATTACK"
-                                        alt.append({
-                                            "Time": packet.summary().split()[0],
-                                            "Source": f"{packet[sc.IP].src}:{packet[sc.TCP].sport if packet.haslayer(sc.TCP) else 'N/A'}",
-                                            "Payload": payload[:100] # Capture first 100 chars
+                                # Check for HTTP request strings
+                                if any(verb in raw_payload for verb in ["GET ", "POST ", "PUT ", "DELETE "]):
+                                    # Transform using the text vectorizer and injection classifier
+                                    X_vec = vector.transform([raw_payload])
+                                    raw_pred = injection_model.predict(X_vec)[0]
+
+                                    # Verify if flagged as malicious (handles both int/str outputs)
+                                    if str(raw_pred).lower() in ["1", "sqli", "xss", "cmd"]:
+                                        packet_info["Status"] = "🚨 INJECTION ATTACK"
+                                        alerts.append({
+                                            "Time": time.strftime("%H:%M:%S"),
+                                            "Source": f"{src_ip}:{sport}",
+                                            "Destination": f"{dst_ip}:{dport}",
+                                            "Payload": raw_payload[:250]
                                         })
                                         dispatch_incident_alert(
-                                            alert_type="Live Network Packet Injection Intrusion",
+                                            alert_type="Live Deep Packet Inspection Intrusion",
                                             severity="Critical",
-                                            target_info=packet[sc.IP].dst,
+                                            target_info=f"{dst_ip}:{dport}",
                                             technical_details={
-                                                "source_origin": f"{packet[sc.IP].src}:{packet[sc.TCP].sport if packet.haslayer(sc.TCP) else 'N/A'}",
-                                                "extracted_malicious_payload": payload[:120]
+                                                "source_origin": f"{src_ip}:{sport}",
+                                                "extracted_malicious_payload": raw_payload[:150]
                                             }
                                         )
-                            except Exception as e:
-                                    pass
+                            except Exception:
+                                pass
+
                         packet_list.append(packet_info)
-                with st.spinner("Sniffing 10 packets..."):
+
+                with st.spinner(f"Sniffing {packet_budget} packets on interface (Timeout: 12s)..."):
                     try:
-                        # Added timeout to prevent infinite hang
-                        sc.sniff(filter ='tcp port 80',prn=Packet_1, store=0, count=10, timeout=10)
+                        # Sniff with user-defined budget and 12-second safety timeout
+                        sc.sniff(filter=custom_filter, prn=process_packet, store=0, count=packet_budget, timeout=12)
+
                         if packet_list:
-                            live_data = pd.DataFrame(packet_list)
-                            st.dataframe(live_data)
-                            if alt:
-                                st.error(f"🚨 {len(alt)} Potential Injection Attacks Detected!")
-                                for alert in alt:
-                                    with st.expander(f"Attack from {alert['Source']}"):
-                                        st.code(alert['Payload'], language="sql")
+                            live_df = pd.DataFrame(packet_list)
+
+                            # Highlight attack rows in Red
+                            def color_status(val):
+                                return 'color: #FF4B4B; font-weight: bold;' if "ATTACK" in val else 'color: #00CC96;'
+
+                            st.dataframe(live_df.style.map(color_status, subset=['Status']), use_container_width=True)
+
+                            if alerts:
+                                st.error(f"🚨 {len(alerts)} Malicious Payload(s) Intercepted!")
+                                for item in alerts:
+                                    with st.expander(f"⚠️ Exploit Frame from {item['Source']} ➔ {item['Destination']} at {item['Time']}"):
+                                        st.code(item['Payload'], language="http")
                             else:
-                                st.success("No malicious injections detected in these 10 packets.")
-                            if not live_data[live_data['Length'] > 1000].empty:
-                                st.error("🚨 Large packets detected in traffic!")
-                            else:
-                                st.success("No immediate traffic issues detected.")
+                                st.success("✅ Clean: No malicious payloads detected in captured frames.")
+
+                            # Sizing anomaly check
+                            oversized = live_df[live_df['Length'] > 1000]
+                            if not oversized.empty:
+                                st.warning(f"⚠️ {len(oversized)} oversized frames (>1000 bytes) identified. Potential data staging or buffer anomaly.")
                         else:
-                            st.error("No packets captured. Ensure you are running with sudo.")
+                            st.info("No packets captured within timeout window. Verify local traffic generation or BPF filter settings.")
+
                     except Exception as e:
-                        st.error(f"Error capturing packets: {e}")
+                        st.error(f"DPI Failure: {e}")
