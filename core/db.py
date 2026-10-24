@@ -1,7 +1,8 @@
 import sqlite3
 import os
 from datetime import datetime , timezone
-db_path =  os.path.join(os.path.dirname(__file__),"..","sentinel.db")
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+db_path = os.path.join(BASE_DIR, "sentinel.db")
 def getconnect():
     conn =  sqlite3.connect(db_path ,timeout=10)
     conn.execute("PRAGMA journal_mode=WAL;")
