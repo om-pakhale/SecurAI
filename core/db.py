@@ -47,6 +47,8 @@ def int_insert_event(src_ip, dst_ip, protocal, payload, pred_class, conf, severi
         float(conf),
         severit
     ))
+    con.commit()
+    con.close()
 def fetch_incident(limit=50):
     con = getconnect()
     cusor = con.cursor()
