@@ -320,8 +320,8 @@ elif page == "Network Intrusion Detection":
         # Helper to load vectorizer and model for the DPI engine
         @st.cache_resource
         def load_sniffer_ml():
-            v_path = 'Models/full_vectorizer.pkl' if os.path.exists('Models/full_vectorizer.pkl') else 'full_vectorizer.pkl'
-            m_path = 'Models/full_injection_model.pkl' if os.path.exists('Models/full_injection_model.pkl') else 'full_injection_model.pkl'
+            v_path = 'Models/multiclass_vector.pkl' if os.path.exists('Models/multiclass_vector.pkl') else 'full_vectorizer.pkl'
+            m_path = 'Models/multiclass_model.pkl' if os.path.exists('Models/multiclass_model.pkl') else 'full_injection_model.pkl'
             vec = joblib.load(v_path)
             mdl = joblib.load(m_path)
             return vec, mdl
